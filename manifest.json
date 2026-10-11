@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Slyfox",
+  "version": "0.1.0",
+  "description": "Summarizes terms and conditions and flags the catches, with links back to the exact lines.",
+  "action": {
+    "default_title": "Analyze the terms on this page"
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "scripts": ["src/background/service-worker.js"],
+    "type": "module"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://api.sarvam.ai/*"],
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "slyfox@slyfox.local",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent"]
+      }
+    }
+  }
+}

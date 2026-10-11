@@ -1,0 +1,44 @@
+name: Release
+
+# Every push to main is tested, packaged for each browser store, and
+# published as a GitHub release tagged v<manifest version>-build.<run number>.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test
+        run: npm test
+
+      - name: Build store packages
+        run: npm run build
+
+      - name: Lint Firefox package
+        run: npx --yes web-ext@8 lint --source-dir dist/firefox
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./manifest.json').version")
+          tag="v${version}-build.${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" dist/*.zip \
+            --target "$GITHUB_SHA" \
+            --title "Slyfox ${version} (build ${GITHUB_RUN_NUMBER})" \
+            --generate-notes

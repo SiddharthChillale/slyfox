@@ -1,0 +1,12 @@
+{
+  "name": "slyfox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser extension that summarizes terms and conditions and flags the catches.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "build:safari": "scripts/build-safari.sh"
+  }
+}
