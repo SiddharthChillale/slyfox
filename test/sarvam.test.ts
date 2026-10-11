@@ -1,26 +1,29 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { SARVAM_CHAT_URL } from '../src/lib/models.js';
-import { SarvamError, chat, parseJsonContent, testConnection } from '../src/lib/sarvam.js';
-import { completion, fakeFetch } from './helpers.js';
+import { SARVAM_CHAT_URL } from '../src/lib/models.ts';
+import type { ChatMessage } from '../src/lib/prompts.ts';
+import { SarvamError, chat, parseJsonContent, testConnection } from '../src/lib/sarvam.ts';
+import { call, completion, fakeFetch } from './helpers.ts';
 
-const base = { apiKey: 'test-key', model: 'sarvam-105b', messages: [{ role: 'user', content: 'hi' }] };
+const messages: ChatMessage[] = [{ role: 'user', content: 'hi' }];
+const base = { apiKey: 'test-key', model: 'sarvam-105b' as const, messages };
 
 test('sends the key header and an explicit null reasoning_effort when reasoning is off', async () => {
   const { impl, calls } = fakeFetch([completion('ok')]);
   await chat({ ...base, reasoning: 'off', fetchImpl: impl });
-  assert.equal(calls[0].url, SARVAM_CHAT_URL);
-  assert.equal(calls[0].headers['api-subscription-key'], 'test-key');
-  assert.ok('reasoning_effort' in calls[0].body);
-  assert.equal(calls[0].body.reasoning_effort, null);
-  assert.equal(calls[0].body.max_tokens, 4096);
+  const first = call(calls, 0);
+  assert.equal(first.url, SARVAM_CHAT_URL);
+  assert.equal(first.headers['api-subscription-key'], 'test-key');
+  assert.ok('reasoning_effort' in first.body);
+  assert.equal(first.body.reasoning_effort, null);
+  assert.equal(first.body.max_tokens, 4096);
 });
 
 test('maps reasoning levels to effort and token budgets', async () => {
   const { impl, calls } = fakeFetch([completion('ok')]);
   await chat({ ...base, reasoning: 'high', fetchImpl: impl });
-  assert.equal(calls[0].body.reasoning_effort, 'high');
-  assert.equal(calls[0].body.max_tokens, 16384);
+  assert.equal(call(calls, 0).body.reasoning_effort, 'high');
+  assert.equal(call(calls, 0).body.max_tokens, 16384);
 });
 
 test('retries once at the next lower level when a reasoning level is rejected', async () => {
@@ -34,7 +37,7 @@ test('retries once at the next lower level when a reasoning level is rejected', 
 });
 
 test('maps HTTP errors to codes', async () => {
-  const cases = [
+  const cases: [{ status: number; text: string }, ErrorCode][] = [
     [{ status: 403, text: 'Invalid API key' }, 'bad_key'],
     [{ status: 429, text: '' }, 'rate_limited'],
     [{ status: 400, text: 'model sarvam-30b is not supported' }, 'model_unavailable'],
@@ -58,5 +61,5 @@ test('testConnection reports a rejected model without throwing', async () => {
 test('parses JSON wrapped in code fences or surrounding text', () => {
   assert.deepEqual(parseJsonContent('```json\n{"a":1}\n```'), { a: 1 });
   assert.deepEqual(parseJsonContent('Here you go: {"a":2} done'), { a: 2 });
-  assert.throws(() => parseJsonContent('no json'), (err) => err.code === 'bad_response');
+  assert.throws(() => parseJsonContent('no json'), (err) => err instanceof SarvamError && err.code === 'bad_response');
 });

@@ -1,6 +1,12 @@
 // Prompts and JSON schemas for the screening and analysis calls.
 
-export const CHECKLIST = [
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  severity: Severity;
+}
+
+export const CHECKLIST: readonly ChecklistItem[] = [
   { id: 'arbitration', label: 'Forced arbitration', severity: 'high' },
   { id: 'class_action_waiver', label: 'Class-action waiver', severity: 'high' },
   { id: 'auto_renewal', label: 'Auto-renewal or hard-to-cancel subscription', severity: 'high' },
@@ -14,10 +20,20 @@ export const CHECKLIST = [
   { id: 'fees', label: 'Hidden fees, penalties or non-refundable charges', severity: 'high' },
 ];
 
-export const SEVERITIES = ['high', 'medium', 'low'];
+export const SEVERITIES: readonly Severity[] = ['high', 'medium', 'low'];
 export const MAX_OTHER_FLAGS = 3;
 
-export const ANALYSIS_SCHEMA = {
+export interface JsonSchemaFormat {
+  name: string;
+  schema: Record<string, unknown>;
+}
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export const ANALYSIS_SCHEMA: JsonSchemaFormat = {
   name: 'terms_analysis',
   schema: {
     type: 'object',
@@ -55,7 +71,7 @@ export const ANALYSIS_SCHEMA = {
   },
 };
 
-export const SCREEN_SCHEMA = {
+export const SCREEN_SCHEMA: JsonSchemaFormat = {
   name: 'injection_screen',
   schema: {
     type: 'object',
@@ -69,7 +85,7 @@ export const SCREEN_SCHEMA = {
 };
 
 // Page text is wrapped as data; a page must not be able to close the wrapper.
-export function formatDocument(segments) {
+export function formatDocument(segments: Segment[]): string {
   const lines = segments.map((s) => `[${s.id}] ${s.text.replace(/<\/?\s*document\s*>/gi, ' ')}`);
   return `<document>\n${lines.join('\n')}\n</document>`;
 }
@@ -108,14 +124,14 @@ Rules for flags:
 
 Reply with JSON only, matching the schema.`;
 
-export function buildScreeningMessages(segments) {
+export function buildScreeningMessages(segments: Segment[]): ChatMessage[] {
   return [
     { role: 'system', content: SCREEN_SYSTEM },
     { role: 'user', content: formatDocument(segments) },
   ];
 }
 
-export function buildAnalysisMessages(segments) {
+export function buildAnalysisMessages(segments: Segment[]): ChatMessage[] {
   return [
     { role: 'system', content: ANALYSIS_SYSTEM },
     { role: 'user', content: formatDocument(segments) },

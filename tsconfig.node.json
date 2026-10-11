@@ -1,0 +1,10 @@
+{
+  // Tests and build scripts: run directly by Node's type stripping, type-checked only.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node", "chrome"],
+    "noEmit": true
+  },
+  "include": ["test", "scripts", "src/types.d.ts"]
+}

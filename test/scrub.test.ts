@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createScrubber, luhn, verhoeff } from '../src/lib/scrub.js';
+import { createScrubber, luhn, verhoeff } from '../src/lib/scrub.ts';
 
-const scrub = (text) => createScrubber().scrub(text);
+const scrub = (text: string) => createScrubber().scrub(text);
 
 test('checksums accept valid numbers and reject near misses', () => {
   assert.equal(luhn('4111111111111111'), true);

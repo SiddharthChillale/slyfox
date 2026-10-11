@@ -1,0 +1,12 @@
+{
+  // The extension itself: compiled to build/ and packaged by scripts/build.ts.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["chrome"],
+    "noUncheckedIndexedAccess": true,
+    "rootDir": "src",
+    "outDir": "build"
+  },
+  "include": ["src"]
+}

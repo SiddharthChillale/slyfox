@@ -1,10 +1,14 @@
 // Minimal Sarvam chat-completions client. Called only from the background
 // worker and the settings page, the two places that may hold the API key.
 
-import { SARVAM_CHAT_URL, REASONING_LEVELS, lowerReasoning } from './models.js';
+import { REASONING_LEVELS, SARVAM_CHAT_URL, lowerReasoning } from './models.ts';
+import type { ChatMessage, JsonSchemaFormat } from './prompts.ts';
 
 export class SarvamError extends Error {
-  constructor(code, message, status) {
+  code: ErrorCode;
+  status: number | undefined;
+
+  constructor(code: ErrorCode, message: string, status?: number) {
     super(message);
     this.name = 'SarvamError';
     this.code = code;
@@ -12,7 +16,36 @@ export class SarvamError extends Error {
   }
 }
 
-function errorFor(status, detail) {
+// The subset of fetch the client uses, so tests can pass a fake.
+export type FetchLike = (
+  url: string,
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal | undefined },
+) => Promise<Pick<Response, 'ok' | 'status' | 'json' | 'text'>>;
+
+export interface ChatOptions {
+  apiKey: string;
+  model: ModelId;
+  messages: ChatMessage[];
+  reasoning?: ReasoningLevel;
+  schema?: JsonSchemaFormat;
+  maxTokens?: number;
+  fetchImpl?: FetchLike;
+  signal?: AbortSignal | undefined;
+}
+
+export interface ChatResult {
+  content: string;
+  finishReason: string | null;
+  usage: unknown;
+  reasoning: ReasoningLevel;
+}
+
+interface CompletionResponse {
+  choices?: { message?: { content?: string | null }; finish_reason?: string | null }[];
+  usage?: unknown;
+}
+
+function errorFor(status: number, detail: string): SarvamError {
   const short = detail.slice(0, 300);
   if (status === 401 || status === 403) {
     return new SarvamError('bad_key', 'Sarvam rejected the API key.', status);
@@ -32,9 +65,18 @@ function errorFor(status, detail) {
   return new SarvamError('bad_request', `Sarvam rejected the request: ${short || `HTTP ${status}`}`, status);
 }
 
-async function request({ apiKey, model, messages, reasoning = 'off', schema, maxTokens, fetchImpl = fetch, signal }) {
+async function request({
+  apiKey,
+  model,
+  messages,
+  reasoning = 'off',
+  schema,
+  maxTokens,
+  fetchImpl = fetch,
+  signal,
+}: ChatOptions): Promise<ChatResult> {
   const level = REASONING_LEVELS[reasoning];
-  const body = {
+  const body: Record<string, unknown> = {
     model,
     messages,
     max_tokens: maxTokens ?? level.maxTokens,
@@ -47,7 +89,7 @@ async function request({ apiKey, model, messages, reasoning = 'off', schema, max
     };
   }
 
-  let res;
+  let res: Awaited<ReturnType<FetchLike>>;
   try {
     res = await fetchImpl(SARVAM_CHAT_URL, {
       method: 'POST',
@@ -56,8 +98,8 @@ async function request({ apiKey, model, messages, reasoning = 'off', schema, max
       signal,
     });
   } catch (err) {
-    if (err?.name === 'AbortError') throw new SarvamError('aborted', 'Request cancelled.');
-    throw new SarvamError('network', `Could not reach Sarvam: ${err?.message ?? err}`);
+    if (err instanceof Error && err.name === 'AbortError') throw new SarvamError('aborted', 'Request cancelled.');
+    throw new SarvamError('network', `Could not reach Sarvam: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   if (!res.ok) {
@@ -65,7 +107,7 @@ async function request({ apiKey, model, messages, reasoning = 'off', schema, max
     throw errorFor(res.status, detail);
   }
 
-  const data = await res.json();
+  const data = (await res.json()) as CompletionResponse;
   const choice = data.choices?.[0];
   return {
     content: choice?.message?.content ?? '',
@@ -77,20 +119,20 @@ async function request({ apiKey, model, messages, reasoning = 'off', schema, max
 
 // The docs disagree on which reasoning levels exist, so a 400 on a reasoning
 // level retries once at the next level down.
-export async function chat(opts) {
+export async function chat(opts: ChatOptions): Promise<ChatResult> {
   try {
     return await request(opts);
   } catch (err) {
     const lower = lowerReasoning(opts.reasoning ?? 'off');
-    if (err.code === 'bad_request' && lower) {
+    if (err instanceof SarvamError && err.code === 'bad_request' && lower) {
       return request({ ...opts, reasoning: lower });
     }
     throw err;
   }
 }
 
-export function parseJsonContent(content) {
-  const text = String(content)
+export function parseJsonContent(content: string): unknown {
+  const text = content
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '');
@@ -110,15 +152,25 @@ export function parseJsonContent(content) {
   }
 }
 
-export async function testConnection({ apiKey, model, fetchImpl }) {
+export type ConnectionResult = { ok: true } | { ok: false; code: ErrorCode; message: string };
+
+export async function testConnection({
+  apiKey,
+  model,
+  fetchImpl,
+}: {
+  apiKey: string;
+  model: ModelId;
+  fetchImpl?: FetchLike;
+}): Promise<ConnectionResult> {
   try {
     await request({
       apiKey,
       model,
-      fetchImpl,
       reasoning: 'off',
       maxTokens: 16,
       messages: [{ role: 'user', content: 'Reply with OK.' }],
+      ...(fetchImpl ? { fetchImpl } : {}),
     });
     return { ok: true };
   } catch (err) {

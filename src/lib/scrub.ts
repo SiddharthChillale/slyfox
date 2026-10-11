@@ -1,10 +1,10 @@
 // Local PII scrubbing. Runs in the extension before any text is sent to an API,
 // so no model ever sees the values it replaces.
 
-const digitsOf = (s) => s.replace(/\D/g, '');
-const repeated = (s) => /^(\d)\1+$/.test(s);
+const digitsOf = (s: string) => s.replace(/\D/g, '');
+const repeated = (s: string) => /^(\d)\1+$/.test(s);
 
-export function luhn(num) {
+export function luhn(num: string): boolean {
   if (repeated(num)) return false;
   let sum = 0;
   let double = false;
@@ -43,19 +43,26 @@ const VERHOEFF_P = [
   [7, 0, 4, 6, 9, 1, 3, 2, 5, 8],
 ];
 
-// Aadhaar numbers end in a Verhoeff check digit.
-export function verhoeff(num) {
+// Aadhaar numbers end in a Verhoeff check digit. Callers pass digits only,
+// so every table lookup is in range.
+export function verhoeff(num: string): boolean {
   if (repeated(num)) return false;
   let c = 0;
   const reversed = [...num].reverse();
   for (let i = 0; i < reversed.length; i++) {
-    c = VERHOEFF_D[c][VERHOEFF_P[i % 8][Number(reversed[i])]];
+    c = VERHOEFF_D[c]![VERHOEFF_P[i % 8]![Number(reversed[i])]!]!;
   }
   return c === 0;
 }
 
+interface Pattern {
+  type: string;
+  re: RegExp;
+  valid?: (match: string) => boolean;
+}
+
 // Order matters: longer digit runs are claimed before shorter patterns can split them.
-const PATTERNS = [
+const PATTERNS: Pattern[] = [
   { type: 'EMAIL', re: /[A-Z0-9._%+-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)*\.[A-Z]{2,}/gi },
   { type: 'CARD', re: /(?<![\d-])\d(?:[ -]?\d){12,18}(?![\d-])/g, valid: (m) => luhn(digitsOf(m)) },
   { type: 'AADHAAR', re: /(?<!\d)[2-9]\d{3}[ -]?\d{4}[ -]?\d{4}(?!\d)/g, valid: (m) => verhoeff(digitsOf(m)) },
@@ -68,18 +75,26 @@ const PATTERNS = [
   { type: 'IP', re: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g },
 ];
 
-// One scrubber per analysis, so the same value gets the same placeholder in every segment.
-export function createScrubber() {
-  const seen = new Map();
-  const counts = {};
+export interface Scrubber {
+  scrub(text: string): string;
+  readonly counts: Record<string, number>;
+  readonly total: number;
+}
 
-  function placeholder(type, value) {
+// One scrubber per analysis, so the same value gets the same placeholder in every segment.
+export function createScrubber(): Scrubber {
+  const seen = new Map<string, string>();
+  const counts: Record<string, number> = {};
+
+  function placeholder(type: string, value: string): string {
     const key = `${type}:${value}`;
-    if (!seen.has(key)) {
+    let found = seen.get(key);
+    if (found === undefined) {
       counts[type] = (counts[type] ?? 0) + 1;
-      seen.set(key, `[${type}_${counts[type]}]`);
+      found = `[${type}_${counts[type]}]`;
+      seen.set(key, found);
     }
-    return seen.get(key);
+    return found;
   }
 
   return {

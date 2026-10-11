@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { quoteInSegment, verifyFlags } from '../src/lib/verify.js';
+import { quoteInSegment, verifyFlags } from '../src/lib/verify.ts';
 
 const segment = 'You agree that any dispute will be resolved by binding arbitration, and you waive the right to a jury trial.';
 
@@ -31,7 +31,7 @@ test('drops bad citations, then flags left with none', () => {
         ],
       },
       { title: 'Invented', citations: [{ segmentId: 's1', quote: 'we sell your data' }] },
-      { title: 'No citations' },
+      { title: 'No citations', citations: [] },
     ],
     segments,
   );

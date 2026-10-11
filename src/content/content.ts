@@ -2,7 +2,8 @@
 // text, shows the panel, and highlights cited passages. It never sees the
 // API key; the background worker does all network calls.
 //
-// Injected with scripting.executeScript, so it is a classic script, not a module.
+// Injected with scripting.executeScript, so it must compile to a classic
+// script: no imports or exports here. Shared types come from src/types.d.ts.
 
 (() => {
   if (window.__slyfox) {
@@ -10,15 +11,15 @@
     return;
   }
 
-  const ext = globalThis.browser ?? globalThis.chrome;
+  const ext = globalThis.browser ?? chrome;
   const HIGHLIGHT_NAME = 'slyfox-quote';
   const HIDDEN_NOTICE_CHARS = 200;
   const HEARTBEAT_MS = 20_000;
-  const ZERO_WIDTH = /[​-‍⁠﻿]/g;
+  const ZERO_WIDTH = /[\u200B-\u200D\u2060\uFEFF]/g;
   const SKIP_SELECTOR =
     'script, style, noscript, template, svg, canvas, iframe, nav, aside, button, select, textarea, input, [contenteditable=""], [contenteditable="true"], #slyfox-host';
 
-  const STEPS = [
+  const STEPS: [ProgressStep, string][] = [
     ['extract', 'Reading the page'],
     ['scrub', 'Removing personal details'],
     ['screen', 'Checking for hidden instructions'],
@@ -28,11 +29,11 @@
 
   // ---------- Extraction ----------
 
-  function pickRoot() {
+  function pickRoot(): HTMLElement {
     const bodyLength = (document.body.innerText || '').length;
-    let best = null;
+    let best: HTMLElement | null = null;
     let bestLength = 0;
-    for (const el of document.querySelectorAll('main, article, [role="main"]')) {
+    for (const el of document.querySelectorAll<HTMLElement>('main, article, [role="main"]')) {
       const length = (el.innerText || '').length;
       if (length > bestLength) {
         best = el;
@@ -43,10 +44,11 @@
     return best && bestLength >= bodyLength / 3 ? best : document.body;
   }
 
-  const visibility = new WeakMap();
+  const visibility = new WeakMap<Element, boolean>();
 
-  function isVisible(el) {
-    if (visibility.has(el)) return visibility.get(el);
+  function isVisible(el: Element): boolean {
+    const cached = visibility.get(el);
+    if (cached !== undefined) return cached;
     let visible = true;
     // Text in a closed <details> is one click away for the reader, so it counts as visible.
     const probe = el.closest('details:not([open])') ?? el;
@@ -69,11 +71,12 @@
     return visible;
   }
 
-  const blockCache = new WeakMap();
+  const blockCache = new WeakMap<Element, Element>();
 
   // The nearest ancestor that isn't inline: one segment per paragraph-like block.
-  function blockOf(el, root) {
-    if (blockCache.has(el)) return blockCache.get(el);
+  function blockOf(el: Element, root: Element): Element {
+    const cached = blockCache.get(el);
+    if (cached) return cached;
     let block = el;
     while (block !== root && block.parentElement && getComputedStyle(block).display.startsWith('inline')) {
       block = block.parentElement;
@@ -82,13 +85,13 @@
     return block;
   }
 
-  function extract() {
+  function extract(): { segments: Segment[]; elements: Map<string, Element>; hiddenChars: number } {
     const root = pickRoot();
-    const blocks = new Map();
+    const blocks = new Map<Element, string[]>();
     let hiddenChars = 0;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const text = node.nodeValue.replace(ZERO_WIDTH, '');
+      const text = (node.nodeValue ?? '').replace(ZERO_WIDTH, '');
       if (!text.trim()) continue;
       const parent = node.parentElement;
       if (!parent || parent.closest(SKIP_SELECTOR)) continue;
@@ -99,12 +102,13 @@
         continue;
       }
       const block = blockOf(parent, root);
-      if (!blocks.has(block)) blocks.set(block, []);
-      blocks.get(block).push(text);
+      const parts = blocks.get(block);
+      if (parts) parts.push(text);
+      else blocks.set(block, [text]);
     }
 
-    const segments = [];
-    const elements = new Map();
+    const segments: Segment[] = [];
+    const elements = new Map<string, Element>();
     for (const [el, parts] of blocks) {
       const text = parts.join('').replace(/\s+/g, ' ').trim();
       if (text.length < 2) continue;
@@ -117,10 +121,10 @@
 
   // ---------- Highlighting ----------
 
-  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  function quotePattern(quote) {
-    const words = (part) =>
+  function quotePattern(quote: string): RegExp | null {
+    const words = (part: string) =>
       part
         .trim()
         .split(/\s+/)
@@ -133,19 +137,18 @@
     return parts.length ? new RegExp(parts.map(words).join('[\\s\\S]*?'), 'i') : null;
   }
 
-  function findQuoteRange(el, quote) {
-    const nodes = [];
+  function findQuoteRange(el: Element, quote: string): Range | null {
+    const nodes: { node: Text; start: number }[] = [];
     let full = '';
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      nodes.push({ node, start: full.length });
-      full += node.nodeValue;
+      nodes.push({ node: node as Text, start: full.length });
+      full += node.nodeValue ?? '';
     }
-    const pattern = quotePattern(quote);
-    const match = pattern && pattern.exec(full);
+    const match = quotePattern(quote)?.exec(full);
     if (!match) return null;
-    const locate = (index) => {
-      let entry = nodes[0];
+    const locate = (index: number) => {
+      let entry = nodes[0]!;
       for (const n of nodes) {
         if (n.start <= index) entry = n;
         else break;
@@ -160,12 +163,14 @@
     return range;
   }
 
-  function highlight(el, quote) {
+  function highlight(el: Element | undefined, quote: string) {
     if (!el || !el.isConnected) return;
     // Citations can point into a collapsed section; open it so the highlight is visible.
-    for (let d = el.closest('details:not([open])'); d; d = d.parentElement?.closest('details:not([open])')) d.open = true;
+    for (let d = el.closest('details:not([open])'); d; d = d.parentElement?.closest('details:not([open])') ?? null) {
+      (d as HTMLDetailsElement).open = true;
+    }
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    let range = null;
+    let range: Range | null = null;
     try {
       range = findQuoteRange(el, quote);
     } catch {
@@ -261,21 +266,31 @@
     .actions button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
   `;
 
-  function el(tag, props = {}, ...children) {
+  type Child = Node | string | null | undefined | false | Child[];
+  type Props = Record<string, string | (() => void)>;
+
+  function flatten(children: Child[]): (Node | string)[] {
+    const out: (Node | string)[] = [];
+    for (const child of children) {
+      if (Array.isArray(child)) out.push(...flatten(child));
+      else if (child !== null && child !== undefined && child !== false) out.push(child);
+    }
+    return out;
+  }
+
+  function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(props)) {
-      if (key === 'class') node.className = value;
-      else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+      if (typeof value === 'function') node.addEventListener(key.replace(/^on/, ''), value);
+      else if (key === 'class') node.className = value;
       else node.setAttribute(key, value);
     }
     // Model output is untrusted: it only ever enters the DOM as text nodes.
-    for (const child of children.flat()) {
-      if (child !== null && child !== undefined && child !== false) node.append(child);
-    }
+    node.append(...flatten(children));
     return node;
   }
 
-  function createPanel() {
+  function createPanel(): { host: HTMLElement; body: HTMLElement } {
     const host = document.createElement('div');
     host.id = 'slyfox-host';
     host.style.cssText =
@@ -319,15 +334,15 @@
   const pageKey = () => location.origin + location.pathname + location.search;
   const startKey = pageKey();
   const panel = createPanel();
-  let segmentElements = new Map();
-  let port = null;
-  let heartbeat = null;
+  let segmentElements = new Map<string, Element>();
+  let port: chrome.runtime.Port | null = null;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
 
-  function render(...children) {
-    panel.body.replaceChildren(...children.flat().filter(Boolean));
+  function render(...children: Child[]) {
+    panel.body.replaceChildren(...flatten(children));
   }
 
-  function renderProgress(step) {
+  function renderProgress(step: ProgressStep) {
     const current = STEPS.findIndex(([id]) => id === step);
     render(
       el('h2', {}, 'Analyzing'),
@@ -339,10 +354,12 @@
     );
   }
 
-  function renderError(result) {
+  function renderError(result: Pick<AnalysisFailure, 'code' | 'message'>) {
     const actions = el('div', { class: 'actions' });
     if (result.code === 'no_key' || result.code === 'bad_key' || result.code === 'model_unavailable') {
-      actions.append(el('button', { class: 'primary', type: 'button', onclick: () => ext.runtime.sendMessage({ type: 'open-options' }) }, 'Open settings'));
+      actions.append(
+        el('button', { class: 'primary', type: 'button', onclick: () => void ext.runtime.sendMessage({ type: 'open-options' }) }, 'Open settings'),
+      );
     }
     if (!['no_terms', 'too_long', 'too_many_tokens'].includes(result.code)) {
       actions.append(el('button', { type: 'button', onclick: run }, 'Try again'));
@@ -350,7 +367,7 @@
     render(el('p', { class: 'error' }, result.message), actions);
   }
 
-  function citationButton(segmentId, quote) {
+  function citationButton(segmentId: string, quote: string) {
     const label = quote.length > 160 ? `${quote.slice(0, 157)}…` : quote;
     return el(
       'button',
@@ -359,8 +376,8 @@
     );
   }
 
-  function renderResult(result) {
-    const notices = [];
+  function renderResult(result: AnalysisSuccess) {
+    const notices: HTMLElement[] = [];
     if (result.injection.detected) {
       notices.push(
         el(
@@ -414,7 +431,7 @@
 
   function stopPort() {
     clearInterval(heartbeat);
-    heartbeat = null;
+    heartbeat = undefined;
     if (port) {
       const old = port;
       port = null;
@@ -431,12 +448,13 @@
 
     let finished = false;
     const current = ext.runtime.connect({ name: 'slyfox' });
+    const send = (msg: PageMessage) => current.postMessage(msg);
     port = current;
-    heartbeat = setInterval(() => current.postMessage({ type: 'ping' }), HEARTBEAT_MS);
-    current.onMessage.addListener((msg) => {
-      if (msg?.type === 'progress') {
+    heartbeat = setInterval(() => send({ type: 'ping' }), HEARTBEAT_MS);
+    current.onMessage.addListener((msg: WorkerMessage) => {
+      if (msg.type === 'progress') {
         renderProgress(msg.step);
-      } else if (msg?.type === 'result') {
+      } else if (msg.type === 'result') {
         finished = true;
         stopPort();
         if (msg.result.status === 'ok') renderResult(msg.result);
@@ -449,7 +467,7 @@
       clearInterval(heartbeat);
       if (!finished) renderError({ code: 'internal', message: 'Lost the connection to Slyfox before the analysis finished.' });
     });
-    current.postMessage({ type: 'analyze', segments, hiddenChars });
+    send({ type: 'analyze', segments, hiddenChars });
   }
 
   // The panel belongs to this page: navigating away, including in single-page apps, removes it.

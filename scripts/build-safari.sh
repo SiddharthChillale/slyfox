@@ -16,7 +16,7 @@ if ! xcrun --find safari-web-extension-converter >/dev/null 2>&1; then
   exit 1
 fi
 
-node "$root/scripts/build.mjs" safari
+node "$root/scripts/build.ts" safari
 
 rm -rf "$project_dir"
 xcrun safari-web-extension-converter "$root/dist/safari" \

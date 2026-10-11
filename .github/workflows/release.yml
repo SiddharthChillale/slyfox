@@ -1,7 +1,7 @@
 name: Release
 
-# Every push to main is tested, packaged for each browser store, and
-# published as a GitHub release tagged v<manifest version>-build.<run number>.
+# Every push to main is type-checked, tested, packaged for each browser store,
+# and published as a GitHub release tagged v<manifest version>-build.<run number>.
 on:
   push:
     branches: [main]
@@ -19,18 +19,28 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Installs the pnpm version pinned in package.json's packageManager field.
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm typecheck
 
       - name: Test
-        run: npm test
+        run: pnpm test
 
       - name: Build store packages
-        run: npm run build
+        run: pnpm build
 
       - name: Lint Firefox package
-        run: npx --yes web-ext@8 lint --source-dir dist/firefox
+        run: pnpm lint:firefox
 
       - name: Create release
         env:

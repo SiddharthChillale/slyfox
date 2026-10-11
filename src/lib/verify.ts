@@ -3,18 +3,18 @@
 
 const MIN_QUOTE_CHARS = 8;
 
-export function normalize(text) {
+export function normalize(text: string): string {
   return text
     .normalize('NFKC')
-    .replace(/[‘’‚′`]/g, "'")
-    .replace(/[“”„″]/g, '"')
-    .replace(/[‐-―−]/g, '-')
+    .replace(/[‘’\u201A\u2032`]/g, "'")
+    .replace(/[“”\u201E\u2033]/g, '"')
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 }
 
-export function quoteInSegment(quote, segmentText) {
+export function quoteInSegment(quote: string, segmentText: string): boolean {
   const haystack = normalize(segmentText);
   const cleaned = normalize(quote).replace(/^["']+|["']+$/g, '');
   // NFKC turns "…" into "...". The model may elide with one; each piece must appear in order.
@@ -32,14 +32,20 @@ export function quoteInSegment(quote, segmentText) {
   return true;
 }
 
-export function verifyFlags(flags, segments) {
+export interface Verified<F> {
+  flags: F[];
+  droppedCitations: number;
+  droppedFlags: number;
+}
+
+export function verifyFlags<F extends { citations: Citation[] }>(flags: F[], segments: Segment[]): Verified<F> {
   const byId = new Map(segments.map((s) => [s.id, s.text]));
   let droppedCitations = 0;
-  const kept = [];
+  const kept: F[] = [];
   for (const flag of flags) {
-    const citations = (Array.isArray(flag.citations) ? flag.citations : []).filter((c) => {
-      const text = byId.get(c?.segmentId);
-      const ok = text !== undefined && typeof c.quote === 'string' && quoteInSegment(c.quote, text);
+    const citations = flag.citations.filter((c) => {
+      const text = byId.get(c.segmentId);
+      const ok = text !== undefined && quoteInSegment(c.quote, text);
       if (!ok) droppedCitations++;
       return ok;
     });
