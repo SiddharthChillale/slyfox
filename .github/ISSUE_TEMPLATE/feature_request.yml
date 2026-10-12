@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an idea or a new catch for Slyfox to look for
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Slyfox to do?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: A terms page or clause that shows the case, if you have one.

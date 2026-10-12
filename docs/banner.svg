@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-label="Slyfox — read the fine print before you agree">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f1a17"/>
+      <stop offset="1" stop-color="#2d211a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="20" fill="url(#bg)"/>
+
+  <!-- fox mark -->
+  <g transform="translate(96 92)">
+    <path d="M0 0 L46 54 L88 40 L130 54 L176 0 L160 98 L88 176 L16 98 Z" fill="#e8762c"/>
+    <path d="M42 104 L88 176 L134 104 L88 124 Z" fill="#f6efe6"/>
+    <circle cx="60" cy="92" r="8" fill="#1f1a17"/>
+    <circle cx="116" cy="92" r="8" fill="#1f1a17"/>
+  </g>
+
+  <text x="320" y="166" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="84" font-weight="700" fill="#f6efe6">Slyfox</text>
+  <text x="322" y="218" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="30" fill="#d9c9b8">Read the fine print before you agree.</text>
+
+  <!-- flag chips -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="18" font-weight="600">
+    <rect x="322" y="250" width="186" height="36" rx="18" fill="#5c1f1a"/>
+    <text x="415" y="274" text-anchor="middle" fill="#ffb4a8">Forced arbitration</text>
+    <rect x="520" y="250" width="148" height="36" rx="18" fill="#5c1f1a"/>
+    <text x="594" y="274" text-anchor="middle" fill="#ffb4a8">Auto-renewal</text>
+    <rect x="680" y="250" width="176" height="36" rx="18" fill="#4d3b14"/>
+    <text x="768" y="274" text-anchor="middle" fill="#f5d48a">Liability capped</text>
+    <rect x="868" y="250" width="166" height="36" rx="18" fill="#4d3b14"/>
+    <text x="951" y="274" text-anchor="middle" fill="#f5d48a">Terms can change</text>
+  </g>
+</svg>

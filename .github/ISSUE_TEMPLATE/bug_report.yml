@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in Slyfox doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: The terms page you analyzed, if it's public. Don't paste anything private.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 141, Firefox 143, Safari 26…
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Slyfox version
+      description: Shown on the extensions page, or the release tag you installed.
+  - type: dropdown
+    id: model
+    attributes:
+      label: Model
+      options: [sarvam-105b, sarvam-30b]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console errors
+      description: Errors from the background worker's console (extensions page → inspect service worker). Remove your API key if it appears.
+      render: text
