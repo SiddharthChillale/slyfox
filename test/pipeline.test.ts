@@ -90,10 +90,25 @@ test('a bad key stops the run before analysis', async () => {
   assert.equal(calls.length, 1);
 });
 
+test('a length cut-off retries once with less reasoning', async () => {
+  const { impl, calls } = fakeFetch([
+    completion({ injection_detected: false, evidence: '' }),
+    completion('', 'length'),
+    completion({ summary: ['x'], flags: [] }),
+  ]);
+  const result = expectOk(await analyze({ segments, settings, fetchImpl: impl }));
+  assert.deepEqual(
+    calls.slice(1).map((c) => c.body.reasoning_effort),
+    ['low', null],
+  );
+  assert.equal(result.stats.reasoning, 'off');
+});
+
 test('a length cut-off is reported instead of empty results', async () => {
-  const { impl } = fakeFetch([completion({ injection_detected: false, evidence: '' }), completion('', 'length')]);
-  const result = await analyze({ segments, settings, fetchImpl: impl });
+  const { impl, calls } = fakeFetch([completion({ injection_detected: false, evidence: '' }), completion('', 'length')]);
+  const result = await analyze({ segments, settings: { ...settings, reasoning: 'off' }, fetchImpl: impl });
   assert.equal(result.status === 'error' && result.code, 'cut_off');
+  assert.equal(calls.length, 2);
 });
 
 test('no key and no terms fail without any request', async () => {

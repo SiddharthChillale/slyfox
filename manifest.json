@@ -13,6 +13,7 @@
   },
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["https://api.sarvam.ai/*"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "options_ui": {
     "page": "src/options/options.html",
     "open_in_tab": true

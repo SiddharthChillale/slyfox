@@ -32,8 +32,45 @@
           <button type="submit" id="save">Save</button>
           <button type="button" id="test" class="secondary">Test connection</button>
         </div>
-        <p id="status" role="status" aria-live="polite"></p>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
       </form>
+
+      <section class="section" aria-labelledby="tracingHeading">
+        <h2 id="tracingHeading">Langfuse tracing</h2>
+        <p class="lead">Optional. Sends a trace of each analysis to your own Langfuse project: timings, token usage and errors, plus the prompts and responses if you allow it. Page text is scrubbed of personal details before it is traced.</p>
+
+        <form id="tracing" novalidate>
+          <label class="check"><input id="lfEnabled" type="checkbox" /> Send traces to Langfuse</label>
+
+          <label for="lfHost">Host</label>
+          <input id="lfHost" type="url" list="lfHosts" autocomplete="off" spellcheck="false" placeholder="https://cloud.langfuse.com" />
+          <datalist id="lfHosts">
+            <option value="https://cloud.langfuse.com">EU</option>
+            <option value="https://us.cloud.langfuse.com">US</option>
+            <option value="https://jp.cloud.langfuse.com">Japan</option>
+          </datalist>
+          <p class="hint">Your Langfuse Cloud region, or the address of your self-hosted Langfuse.</p>
+
+          <label for="lfPublicKey">Public key</label>
+          <input id="lfPublicKey" type="text" autocomplete="off" spellcheck="false" placeholder="pk-lf-…" />
+
+          <label for="lfSecretKey">Secret key</label>
+          <div class="key-row">
+            <input id="lfSecretKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-lf-…" />
+            <button type="button" id="toggleSecret" class="secondary" aria-controls="lfSecretKey">Show</button>
+          </div>
+          <p class="hint">Create both under Settings → API Keys in your Langfuse project. They are stored on this device and sent only to the host above.</p>
+
+          <label class="check"><input id="lfContent" type="checkbox" /> Include prompts, responses and the page address</label>
+          <p class="hint">Turn off to send only timings, token counts and errors.</p>
+
+          <div class="actions">
+            <button type="submit" id="lfSave">Save</button>
+            <button type="button" id="lfTest" class="secondary">Test connection</button>
+          </div>
+          <p id="lfStatus" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
     </main>
   </body>
 </html>

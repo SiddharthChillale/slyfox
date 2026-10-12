@@ -123,15 +123,38 @@ button:disabled {
   cursor: progress;
 }
 
-#status {
+.status {
   min-height: 1.5em;
   margin-top: 16px;
 }
 
-#status.good {
+.status[data-tone='good'] {
   color: var(--good);
 }
 
-#status.bad {
+.status[data-tone='bad'] {
   color: var(--bad);
+}
+
+.section {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+h2 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+label.check input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
 }

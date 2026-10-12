@@ -18,7 +18,8 @@ export function fakeFetch(responses: (FakeResponse | Error)[]): { impl: FetchLik
   const calls: RecordedCall[] = [];
   const queue = [...responses];
   const impl: FetchLike = async (url, init) => {
-    calls.push({ url, body: JSON.parse(init.body) as Record<string, unknown>, headers: init.headers });
+    const body = init.body === undefined ? {} : (JSON.parse(init.body) as Record<string, unknown>);
+    calls.push({ url, body, headers: init.headers });
     const next = queue.shift();
     if (!next) throw new Error('fakeFetch: no response queued');
     if (next instanceof Error) throw next;

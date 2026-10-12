@@ -13,6 +13,15 @@ interface Settings {
   reasoning: ReasoningLevel;
 }
 
+interface LangfuseSettings {
+  enabled: boolean;
+  host: string;
+  publicKey: string;
+  secretKey: string;
+  // Send prompts, responses and the page address, not just timings and counts.
+  captureContent: boolean;
+}
+
 interface Segment {
   id: string;
   text: string;

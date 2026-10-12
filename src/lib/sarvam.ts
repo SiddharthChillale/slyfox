@@ -1,6 +1,7 @@
 // Minimal Sarvam chat-completions client. Called only from the background
 // worker and the settings page, the two places that may hold the API key.
 
+import { type Span, usageDetails } from './langfuse.ts';
 import { REASONING_LEVELS, SARVAM_CHAT_URL, lowerReasoning } from './models.ts';
 import type { ChatMessage, JsonSchemaFormat } from './prompts.ts';
 
@@ -19,7 +20,7 @@ export class SarvamError extends Error {
 // The subset of fetch the client uses, so tests can pass a fake.
 export type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal | undefined },
+  init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal | undefined },
 ) => Promise<Pick<Response, 'ok' | 'status' | 'json' | 'text'>>;
 
 export interface ChatOptions {
@@ -31,6 +32,8 @@ export interface ChatOptions {
   maxTokens?: number;
   fetchImpl?: FetchLike;
   signal?: AbortSignal | undefined;
+  // Records each request as a Langfuse generation under `parent`.
+  observe?: { parent: Span; name: string };
 }
 
 export interface ChatResult {
@@ -65,16 +68,7 @@ function errorFor(status: number, detail: string): SarvamError {
   return new SarvamError('bad_request', `Sarvam rejected the request: ${short || `HTTP ${status}`}`, status);
 }
 
-async function request({
-  apiKey,
-  model,
-  messages,
-  reasoning = 'off',
-  schema,
-  maxTokens,
-  fetchImpl = fetch,
-  signal,
-}: ChatOptions): Promise<ChatResult> {
+function requestBody({ model, messages, reasoning = 'off', schema, maxTokens }: ChatOptions): Record<string, unknown> {
   const level = REASONING_LEVELS[reasoning];
   const body: Record<string, unknown> = {
     model,
@@ -88,7 +82,13 @@ async function request({
       json_schema: { name: schema.name, strict: true, schema: schema.schema },
     };
   }
+  return body;
+}
 
+async function send(
+  { apiKey, reasoning = 'off', fetchImpl = fetch, signal }: ChatOptions,
+  body: Record<string, unknown>,
+): Promise<ChatResult> {
   let res: Awaited<ReturnType<FetchLike>>;
   try {
     res = await fetchImpl(SARVAM_CHAT_URL, {
@@ -115,6 +115,35 @@ async function request({
     usage: data.usage ?? null,
     reasoning,
   };
+}
+
+async function request(opts: ChatOptions): Promise<ChatResult> {
+  const body = requestBody(opts);
+  if (!opts.observe) return send(opts, body);
+
+  const { messages, model: _model, ...modelParameters } = body;
+  const generation = opts.observe.parent.child(opts.observe.name, {
+    type: 'generation',
+    input: messages,
+    model: opts.model,
+    modelParameters: { ...modelParameters, response_format: opts.schema?.name },
+  });
+  try {
+    const result = await send(opts, body);
+    generation.end({
+      output: result.content,
+      usage: usageDetails(result.usage),
+      metadata: { finishReason: result.finishReason },
+    });
+    return result;
+  } catch (err) {
+    generation.end({
+      level: 'ERROR',
+      statusMessage: err instanceof Error ? err.message : String(err),
+      metadata: err instanceof SarvamError ? { code: err.code, status: err.status } : {},
+    });
+    throw err;
+  }
 }
 
 // The docs disagree on which reasoning levels exist, so a 400 on a reasoning

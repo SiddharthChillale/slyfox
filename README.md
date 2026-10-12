@@ -28,6 +28,14 @@ This compiles the TypeScript in `src/` and writes an unpacked extension and a st
 
 Then open the extension's settings, paste your Sarvam API key, pick a model and reasoning level, and save. Slyfox checks the key and model before saving. In Firefox, saving also asks for permission to reach `api.sarvam.ai`.
 
+## Trace runs with Langfuse (optional)
+
+To see each analysis in [Langfuse](https://langfuse.com), open the settings, tick **Send traces to Langfuse** under **Langfuse tracing**, and enter your host and your project's public and secret keys. Saving checks the keys against the host and asks for permission to reach it.
+
+Each analysis becomes one `analyze-terms` trace with these observations: `scrub-pii` (redaction count), `injection-screen` and `terms-analysis` (Sarvam generations with model, parameters, token usage and errors) and `verify-citations` (flags kept and quotes dropped). Untick **Include prompts, responses and the page address** to send only timings, counts and errors. Traces only ever contain text after PII scrubbing, and the Sarvam key is never sent.
+
+Spans are kept in memory during the run and sent in one request to Langfuse's OpenTelemetry endpoint (`/api/public/otel/v1/traces`) after the panel has its result. A failed export is logged in the background worker's console and never affects the analysis. The code is in `src/lib/langfuse.ts`.
+
 ## Use it
 
 Open a terms page and click the Slyfox toolbar button. A panel opens on the right. Click a quote to scroll to it and highlight it on the page. Click the button again, or the ×, to close the panel. Navigating to another page removes it.
@@ -43,7 +51,7 @@ Open a terms page and click the Slyfox toolbar button. A panel opens on the righ
 | Drop any quote not found in its segment | Background | `src/lib/verify.ts` |
 | Render the panel and highlights | Page | `src/content/content.ts` |
 
-The API key is stored in `storage.local` and read only by the background worker and the settings page. Model output only enters the page as text nodes.
+The API key and the Langfuse keys are stored in `storage.local` and read only by the background worker and the settings page. Model output only enters the page as text nodes.
 
 The page script is injected with `scripting.executeScript`, so it must compile to a classic script with no imports. Types it shares with the rest of the code live in the ambient `src/types.d.ts`.
 

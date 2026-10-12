@@ -16,14 +16,14 @@ test('sends the key header and an explicit null reasoning_effort when reasoning 
   assert.equal(first.headers['api-subscription-key'], 'test-key');
   assert.ok('reasoning_effort' in first.body);
   assert.equal(first.body.reasoning_effort, null);
-  assert.equal(first.body.max_tokens, 4096);
+  assert.equal(first.body.max_tokens, 8192);
 });
 
 test('maps reasoning levels to effort and token budgets', async () => {
   const { impl, calls } = fakeFetch([completion('ok')]);
   await chat({ ...base, reasoning: 'high', fetchImpl: impl });
   assert.equal(call(calls, 0).body.reasoning_effort, 'high');
-  assert.equal(call(calls, 0).body.max_tokens, 16384);
+  assert.equal(call(calls, 0).body.max_tokens, 24576);
 });
 
 test('retries once at the next lower level when a reasoning level is rejected', async () => {

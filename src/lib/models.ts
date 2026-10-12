@@ -24,11 +24,13 @@ export interface ReasoningInfo {
 
 // `effort: null` is sent explicitly: Sarvam turns reasoning on when the field is omitted.
 // Reasoning tokens count against max_tokens, so higher levels get a larger budget.
+// A full analysis of a long document is about 4K tokens of JSON on its own, so
+// even Off needs room; High is capped so a 100K-char document still fits sarvam-30b.
 export const REASONING_LEVELS: Record<ReasoningLevel, ReasoningInfo> = {
-  off: { label: 'Off', effort: null, maxTokens: 4096 },
-  low: { label: 'Low', effort: 'low', maxTokens: 8192 },
-  medium: { label: 'Medium', effort: 'medium', maxTokens: 12288 },
-  high: { label: 'High', effort: 'high', maxTokens: 16384 },
+  off: { label: 'Off', effort: null, maxTokens: 8192 },
+  low: { label: 'Low', effort: 'low', maxTokens: 16384 },
+  medium: { label: 'Medium', effort: 'medium', maxTokens: 20480 },
+  high: { label: 'High', effort: 'high', maxTokens: 24576 },
 };
 
 export const REASONING_ORDER: readonly ReasoningLevel[] = ['off', 'low', 'medium', 'high'];
